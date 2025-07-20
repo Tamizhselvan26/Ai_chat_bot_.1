@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Widget</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/geist-font/1.0.0/fonts/geist-sans/style.min.css">
+    <style>
+        body {
+            font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            display: flex;
+            justify-content: flex-end;
+            align-items: flex-end;
+            height: 100vh;
+            overflow: hidden;
+        }
+        /* Chat Widget Styling */
+        #chat-widget-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 350px;
+            height: 500px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            display: none;
+            flex-direction: column;
+            z-index: 1000;
+            overflow: hidden;
+        }
+        #chat-widget-header {
+            background: #00e39b;
+            color: white;
+            padding: 20px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 18px;
+        }
+        #chat-widget-body {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        /* Increased spacing between messages */
+        #chat-widget-body p {
+            margin-bottom: 15px; /* Adjust spacing between messages */
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            word-wrap: break-word;
+        }
+        #chat-widget-footer {
+            padding: 12px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            gap: 10px;
+        }
+        #chat-widget-input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            outline: none;
+        }
+        #chat-widget-send {
+            background: #8e6ed8;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        /* Make the chat bubble a perfect circle */
+        #chat-widget-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #00bfd4;
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            z-index: 1001;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Chat Widget Button -->
+    <button id="chat-widget-button">💬</button>
+
+    <!-- Chat Widget -->
+    <div id="chat-widget-container">
+        <div id="chat-widget-header">
+            <span>Chat</span>
+            <button onclick="closeChatWidget()">✖</button>
+        </div>
+        <div id="chat-widget-body">
+            <p style="margin-bottom: 20px;"><strong>Hi 👋, how can we help?</strong></p>
+        </div>
+        <div id="chat-widget-footer">
+            <input type="text" id="chat-widget-input" placeholder="Type your message here...">
+            <button id="chat-widget-send">Send</button>
+        </div>
+    </div>
+
+    <!-- Chat Widget Script -->
+    <script>
+        window.ChatWidgetConfig = {
+            webhook: {
+                url: 'http://localhost:5678/webhook/305f9a48-2e75-4225-96e9-22f89c0a36bd/chat',
+                route: 'general'
+            },
+            style: {
+                primaryColor: '#854fff',
+                secondaryColor: '#6b3fd4',
+                position: 'right',
+                backgroundColor: '#ffffff',
+                fontColor: '#333333'
+            }
+        };
+
+        // Function to generate or retrieve a unique chat ID
+        function getChatId() {
+            let chatId = sessionStorage.getItem("chatId");
+            if (!chatId) {
+                chatId = "chat_" + Math.random().toString(36).substr(2, 9); // Unique ID
+                sessionStorage.setItem("chatId", chatId);
+            }
+            return chatId;
+        }
+
+        // Show chat widget and hide bubble
+        document.getElementById("chat-widget-button").addEventListener("click", function() {
+            document.getElementById("chat-widget-container").style.display = "flex";
+            document.getElementById("chat-widget-button").style.display = "none";
+        });
+
+        // Close chat widget and show bubble
+        function closeChatWidget() {
+            document.getElementById("chat-widget-container").style.display = "none";
+            document.getElementById("chat-widget-button").style.display = "flex";
+        }
+
+        // Send message to n8n webhook
+        document.getElementById("chat-widget-send").addEventListener("click", function() {
+            let message = document.getElementById("chat-widget-input").value;
+            if (message.trim() === "") return;
+
+            let chatBody = document.getElementById("chat-widget-body");
+            let newMessage = document.createElement("p");
+            newMessage.textContent = message;
+            newMessage.style.color = "#333";
+            newMessage.style.background = "#f1f1f1";
+            chatBody.appendChild(newMessage);
+
+            let chatId = getChatId(); // Retrieve the session chat ID
+
+            fetch(window.ChatWidgetConfig.webhook.url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    chatId: chatId,  // Attach chat ID for memory tracking
+                    message: message,
+                    route: window.ChatWidgetConfig.webhook.route
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                let botMessage = document.createElement("p");
+                botMessage.innerHTML = data.output || "Sorry, I couldn't understand that.";
+                botMessage.style.color = "#fff";
+                botMessage.style.background = "#854fff";
+                botMessage.style.marginTop = "10px";
+                chatBody.appendChild(botMessage);
+            })
+            .catch(error => console.error("Error:", error));
+
+            document.getElementById("chat-widget-input").value = "";
+        });
+    </script>
+
+</body>
+</html>
